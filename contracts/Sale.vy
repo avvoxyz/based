@@ -47,6 +47,8 @@ minimum: public(uint256)
 beneficiary: public(address)
 # Uniswap router
 uniswap: public(Uniswap)
+# Total raised
+raised: public(uint256)
 
 
 @external
@@ -116,6 +118,8 @@ def purchase():
         block.timestamp,
         value=liquidityShare[0],
     )
+
+    self.raised += msg.value
 
 
 @external
