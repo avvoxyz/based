@@ -6,12 +6,12 @@
 from vyper.interfaces import ERC20
 
 
-interface Uniswap:
-    def addLiquidityETH(
+interface Joe:
+    def addLiquidityAVAX(
         token: address,
         amountTokenDesired: uint256,
         amountTokenMin: uint256,
-        amountETHMin: uint256,
+        amountAVAXMin: uint256,
         to: address,
         deadline: uint256,
     ) -> (uint256, uint256, uint256):
@@ -45,8 +45,8 @@ start: public(uint256)
 minimum: public(uint256)
 # Receiver of 25% of this sale
 beneficiary: public(address)
-# Uniswap router
-uniswap: public(Uniswap)
+# Joe router
+joe: public(Joe)
 # Total raised
 raised: public(uint256)
 
@@ -63,7 +63,7 @@ def __init__(
     self.price = _price
     self.start = _start
     self.minimum = _minimum
-    self.uniswap = Uniswap(_uniswap)
+    self.joe = Joe(_uniswap)
     self.beneficiary = msg.sender
 
     self.saleToken.approve(_uniswap, MAX_UINT256)
@@ -109,7 +109,7 @@ def purchase():
         self.saleToken.balanceOf(self) >= liquidityShare[1]
     ), "Insufficient balance for liquidity"
     # Add liquidity to the pool
-    self.uniswap.addLiquidityETH(
+    self.joe.addLiquidityAVAX(
         self.saleToken.address,
         liquidityShare[1],
         0,
