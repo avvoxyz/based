@@ -163,5 +163,6 @@ def updateFarm(pair: address, rate: uint256):
     @dev Only admin can change reward rate
     """
     assert msg.sender == self.admin  # dev: not admin
+    assert pair != self.reward.address # dev: cannot accept reward token
     self.rates[pair] = rate
     log UpdateFarm(pair, rate)

@@ -78,7 +78,7 @@ def transfer(receiver: address, amount: uint256) -> bool:
     @return True
     """
     converted: uint256 = self._based(convert(amount, decimal), False)
-    self.balances[msg.sender] -= amount
+    self.balances[msg.sender] -= converted
     self.balances[receiver] += converted
     log Transfer(msg.sender, receiver, amount)
     return True
@@ -94,8 +94,8 @@ def transferFrom(sender: address, receiver: address, amount: uint256) -> bool:
     @return True
     """
     converted: uint256 = self._based(convert(amount, decimal), False)
-    self.allowance[sender][msg.sender] -= amount
-    self.balances[sender] -= amount
+    self.allowance[sender][msg.sender] -= converted
+    self.balances[sender] -= converted
     self.balances[receiver] += converted
     log Transfer(sender, receiver, amount)
     return True
@@ -117,12 +117,21 @@ def approve(receiver: address, amount: uint256) -> bool:
 @external
 @view
 def balanceOf(owner: address) -> uint256:
+    """
+    @notice Get balance of owner
+    @param owner Owner of tokens
+    @return Balance multiplied by delta
+    """
     return self._based(convert(self.balances[owner], decimal), True)
 
 
 @external
 @view
 def totalSupply() -> uint256:
+    """
+    @notice Get total supply
+    @return Total supply multiplied by delta
+    """
     return self._based(convert(self.supply, decimal), True)
 
 
