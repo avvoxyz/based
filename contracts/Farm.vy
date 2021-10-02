@@ -86,6 +86,7 @@ def _claim(user: address, pair: address) -> bool:
 
     self.reward.transfer(user, pending)
 
+    # Referral program
     referredBy: address = self.deposits[user][pair].referredBy
     if (referredBy != ZERO_ADDRESS) and self.referralProgram:
         referralReward: uint256 = min(pending / 1000, self.reward.balanceOf(self))
@@ -149,7 +150,7 @@ def withdraw(pair: address, amount: uint256):
     @param pair Pair to withdraw
     @param amount Amount to withdraw
     """
-    updated: bool = self._claim(msg.sender, pair)
+    self._claim(msg.sender, pair)
     self.deposits[msg.sender][pair].amount -= amount
     ERC20(pair).transfer(msg.sender, amount)
 
