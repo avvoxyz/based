@@ -18,6 +18,11 @@ event Claim:
     amount: uint256
 
 
+event ReferralClaim:
+    receiver: indexed(address)
+    amount: uint256
+
+
 event Withdraw:
     owner: indexed(address)
     pair: indexed(address)
@@ -38,6 +43,7 @@ event UpdateFarm:
 struct Deposits:
     amount: uint256
     entrance: uint256
+    referredBy: address
 
 
 admin: public(address)
@@ -47,6 +53,7 @@ rates: public(HashMap[address, uint256])
 total: public(HashMap[address, uint256])
 
 deposits: public(HashMap[address, HashMap[address, Deposits]])
+referralProgram: public(bool)
 
 
 @external
@@ -78,6 +85,14 @@ def _claim(user: address, pair: address) -> bool:
         return False
 
     self.reward.transfer(user, pending)
+
+    referredBy: address = self.deposits[user][pair].referredBy
+    if (referredBy != ZERO_ADDRESS) and self.referralProgram:
+        referralReward: uint256 = min(pending / 1000, self.reward.balanceOf(self))
+        if referralReward > 0:
+            self.reward.transfer(referredBy, referralReward)
+            log ReferralClaim(referredBy, referralReward)
+
     self.deposits[user][pair].entrance = block.timestamp
     log Claim(user, pair, pending)
     return True
@@ -91,11 +106,12 @@ def pending(user: address, pair: address) -> uint256:
 
 @external
 @nonreentrant("lock")
-def deposit(pair: address, amount: uint256):
+def deposit(pair: address, amount: uint256, referral: address = ZERO_ADDRESS):
     """
     @notice Deposit assets
     @param pair Pair to deposit
     @param amount Amount to deposit
+    @param referral Address to reward 0.1% of claims
     @dev Reward for pair must be higher than 0
     """
     assert self.rates[pair] > 0, "Pair not available for farming"
@@ -106,6 +122,10 @@ def deposit(pair: address, amount: uint256):
 
     if not updated and (amount > 0):
         self.deposits[msg.sender][pair].entrance = block.timestamp
+
+    if self.deposits[msg.sender][pair].referredBy == ZERO_ADDRESS:
+        # User does not have any referral set before, adding referral
+        self.deposits[msg.sender][pair].referredBy = referral
 
     log Deposit(msg.sender, pair, amount)
 
@@ -163,6 +183,17 @@ def updateFarm(pair: address, rate: uint256):
     @dev Only admin can change reward rate
     """
     assert msg.sender == self.admin  # dev: not admin
-    assert pair != self.reward.address # dev: cannot accept reward token
+    assert pair != self.reward.address  # dev: cannot accept reward token
     self.rates[pair] = rate
     log UpdateFarm(pair, rate)
+
+
+@external
+def updateReferral(enabled: bool):
+    """
+    @notice Update referral program status
+    @param enabled Whether it is enabled or not
+    @dev Only admin can change referral program status
+    """
+    assert msg.sender == self.admin  # dev: not admin
+    self.referralProgram = enabled
