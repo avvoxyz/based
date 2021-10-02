@@ -1,6 +1,11 @@
 # @version 0.2.16
 """
-@notice Yield farming contract
+@notice Yield farming contract with referral program
+    Referral program sends 0.1% of the claimed reward to the referred by
+    Referred by needs to hold specific amount of minimumHodl to be eligible
+
+    There is emergency withdraw function for emergency cases, this ignores
+    pending rewards and immediately withdraws the whole token balance of user
 @author avvo.xyz
 """
 from vyper.interfaces import ERC20
@@ -46,6 +51,11 @@ struct Deposits:
     referredBy: address
 
 
+struct ReferralProgram:
+    enabled: bool
+    minimumHodl: uint256
+
+
 admin: public(address)
 reward: public(ERC20)
 
@@ -53,7 +63,7 @@ rates: public(HashMap[address, uint256])
 total: public(HashMap[address, uint256])
 
 deposits: public(HashMap[address, HashMap[address, Deposits]])
-referralProgram: public(bool)
+referralProgram: public(ReferralProgram)
 
 
 @external
@@ -88,9 +98,13 @@ def _claim(user: address, pair: address) -> bool:
 
     # Referral program
     referredBy: address = self.deposits[user][pair].referredBy
-    if (referredBy != ZERO_ADDRESS) and self.referralProgram:
+    if (referredBy != ZERO_ADDRESS) and self.referralProgram.enabled:
         referralReward: uint256 = min(pending / 1000, self.reward.balanceOf(self))
-        if referralReward > 0:
+        # Check if there are any rewards and if any, check if referred by is eligible
+        # to receive rewards
+        if (referralReward > 0) and (
+            self.reward.balanceOf(referredBy) >= self.referralProgram.minimumHodl
+        ):
             self.reward.transfer(referredBy, referralReward)
             log ReferralClaim(referredBy, referralReward)
 
@@ -124,7 +138,9 @@ def deposit(pair: address, amount: uint256, referral: address = ZERO_ADDRESS):
     if not updated and (amount > 0):
         self.deposits[msg.sender][pair].entrance = block.timestamp
 
-    if self.deposits[msg.sender][pair].referredBy == ZERO_ADDRESS:
+    if (self.deposits[msg.sender][pair].referredBy == ZERO_ADDRESS) and (
+        referral != ZERO_ADDRESS
+    ):
         # User does not have any referral set before, adding referral
         self.deposits[msg.sender][pair].referredBy = referral
 
@@ -190,11 +206,11 @@ def updateFarm(pair: address, rate: uint256):
 
 
 @external
-def updateReferral(enabled: bool):
+def updateReferral(enabled: bool, minimumHodl: uint256):
     """
     @notice Update referral program status
     @param enabled Whether it is enabled or not
     @dev Only admin can change referral program status
     """
     assert msg.sender == self.admin  # dev: not admin
-    self.referralProgram = enabled
+    self.referralProgram = ReferralProgram({enabled: enabled, minimumHodl: minimumHodl})
